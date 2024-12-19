@@ -1,8 +1,9 @@
-package com.example.fruitcounter
+package com.example.aldifruitcounter
 
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
 import android.os.Bundle
-import android.renderscript.Element
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
@@ -12,6 +13,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import com.example.fruitcounter.R
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
@@ -37,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         resultTextView = findViewById(R.id.resultTextView)
 
         // Load TensorFlow Lite model
-        val tfliteModel = assets.open("model.tflite").use { it.readBytes() }
+        val tfliteModel = ByteBuffer.wrap(assets.open("model.tflite").use { it.readBytes() })
         tflite = Interpreter(tfliteModel)
 
         // Initialize Camera
@@ -66,14 +68,20 @@ class MainActivity : AppCompatActivity() {
         imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    val bitmap = loadBitmapFromFile(outputFileResults.savedUri) // Convert to Bitmap
-                    analyzeImage(bitmap)
+                    val bitmap = outputFileResults.savedUri?.let { loadBitmapFromFile(it) } // Convert to Bitmap
+                    if (bitmap != null) {
+                        analyzeImage(bitmap)
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
                     Log.e("FruitCounter", "Image capture failed: ${exception.message}", exception)
                 }
             })
+    }
+
+    private fun loadBitmapFromFile(uri: Uri): Bitmap {
+        return ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, uri))
     }
 
     private fun analyzeImage(bitmap: Bitmap) {
@@ -94,7 +102,7 @@ class MainActivity : AppCompatActivity() {
 
         // Run inference
         val outputBuffer =
-            TensorBuffer.createFixedSize(intArrayOf(1, 10), Element.DataType.FLOAT32) // Adjust output size
+            TensorBuffer.createFixedSize(intArrayOf(1, 10), DataType.FLOAT32) // Adjust output size
         tflite.run(inputBuffer, outputBuffer.buffer.rewind())
 
         // Display result
