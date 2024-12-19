@@ -1,23 +1,31 @@
 package com.example.aldifruitcounter
 
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.Manifest
+import android.graphics.Canvas
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.fruitcounter.R
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import java.io.FileInputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -29,8 +37,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var imageCapture: ImageCapture
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var tflite: Interpreter
+    private val cameraRequestCode = 100
+    private val storageRequestCode = 200
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -39,10 +50,18 @@ class MainActivity : AppCompatActivity() {
         resultTextView = findViewById(R.id.resultTextView)
 
         // Load TensorFlow Lite model
-        val tfliteModel = ByteBuffer.wrap(assets.open("model.tflite").use { it.readBytes() })
-        tflite = Interpreter(tfliteModel)
+        tflite = Interpreter(loadModelFile())
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), storageRequestCode)
+        }
 
         // Initialize Camera
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), cameraRequestCode)
+        }
+
         cameraExecutor = Executors.newSingleThreadExecutor()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
@@ -52,16 +71,21 @@ class MainActivity : AppCompatActivity() {
 
             imageCapture = ImageCapture.Builder().build()
 
-            cameraProvider.bindToLifecycle(
-                this,
-                androidx.camera.core.CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageCapture
-            )
+            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
         }, ContextCompat.getMainExecutor(this))
 
         captureButton.setOnClickListener { captureAndAnalyzeImage() }
     }
+
+    private fun loadModelFile(): MappedByteBuffer {
+        val fileDescriptor = assets.openFd("new_set.tflite")
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        val startOffset = fileDescriptor.startOffset
+        val declaredLength = fileDescriptor.declaredLength
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+    }
+
 
     private fun captureAndAnalyzeImage() {
         val outputFileOptions = ImageCapture.OutputFileOptions.Builder(createTempFile()).build()
@@ -81,18 +105,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadBitmapFromFile(uri: Uri): Bitmap {
-        return ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, uri))
+        val source = ImageDecoder.createSource(contentResolver, uri)
+        return ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+            // Force the bitmap to be decoded with software rendering and ARGB_8888 format
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+        }
     }
 
+
+
     private fun analyzeImage(bitmap: Bitmap) {
-        // Resize bitmap to match model input size
-        val inputImage = Bitmap.createScaledBitmap(bitmap, 224, 224, true)
+        // Resize bitmap to match model input size (640x640)
+        val inputImage = Bitmap.createScaledBitmap(bitmap, 640, 640, true)
 
         // Convert to ByteBuffer
-        val inputBuffer = ByteBuffer.allocateDirect(4 * 224 * 224 * 3)
+        val inputBuffer = ByteBuffer.allocateDirect(640 * 640 * 3 * 4) // 640x640x3, 4 bytes per float
+        inputBuffer.order(ByteOrder.nativeOrder())  // Set correct byte order
         inputBuffer.rewind()
-        for (y in 0 until 224) {
-            for (x in 0 until 224) {
+
+        for (y in 0 until 640) {
+            for (x in 0 until 640) {
                 val pixel = inputImage.getPixel(x, y)
                 inputBuffer.putFloat((pixel shr 16 and 0xFF) / 255.0f) // Red
                 inputBuffer.putFloat((pixel shr 8 and 0xFF) / 255.0f)  // Green
@@ -101,14 +133,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Run inference
-        val outputBuffer =
-            TensorBuffer.createFixedSize(intArrayOf(1, 10), DataType.FLOAT32) // Adjust output size
-        tflite.run(inputBuffer, outputBuffer.buffer.rewind())
+        val outputBuffer = TensorBuffer.createFixedSize(intArrayOf(1, 67, 8400), DataType.FLOAT32) // Output shape [1, 67, 8400]
+        tflite.run(inputBuffer, outputBuffer.buffer.rewind())  // Running inference
 
-        // Display result
+        // Get the result from the output buffer
         val result = outputBuffer.floatArray
-        resultTextView.text = "Prediction: ${result.indices.maxByOrNull { result[it] }}"
+
+        // Generate a string representation of the result matrix
+        val resultString = StringBuilder()
+
+        // Loop through the 67 classes and 8400 values in each class
+        for (i in 0 until 67) {
+            resultString.append("Class $i:\n")
+            for (j in 0 until 8400) {
+                val value = result[i * 8400 + j]  // Get the value at position (i, j)
+                resultString.append(String.format("%.2f ", value))  // Format value as a string
+            }
+            resultString.append("\n\n")  // Separate each class with a newline
+        }
+
+        // Show the result in a TextView
+        resultTextView.text = resultString.toString()
     }
+
+
+
+
+
 
     override fun onDestroy() {
         super.onDestroy()

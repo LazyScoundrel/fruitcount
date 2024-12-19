@@ -4,10 +4,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.fruitcounter"
+    namespace = "com.example.aldifruitcounter"
     compileSdk = 34
     defaultConfig {
-        applicationId = "com.example.fruitcounter"
+        applicationId = "com.example.aldifruitcounter"
         minSdk = 28
         targetSdk = 34
         versionCode = 1
@@ -50,6 +50,7 @@ dependencies {
     implementation("androidx.camera:camera-core:1.3.0")
     implementation("androidx.camera:camera-view:1.3.0")
     implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
     implementation("androidx.core:core-ktx:1.10.1")
     implementation("com.google.android.material:material:1.9.0")  // Or a compatible version
@@ -59,3 +60,5 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.12.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.3")
 }
+
+
