@@ -51,8 +51,13 @@ class MainActivity : AppCompatActivity() {
         tflite = Interpreter(loadModelFile())
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), storageRequestCode)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                storageRequestCode
+            )
         }
 
         // Initialize Camera
@@ -128,7 +133,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Run inference
-        val outputBuffer = TensorBuffer.createFixedSize(intArrayOf(1, 67, 8400), DataType.FLOAT32) // Output shape [1, 67, 8400]
+        val outputBuffer =
+            TensorBuffer.createFixedSize(intArrayOf(1, 67, 8400), DataType.FLOAT32) // Output shape [1, 67, 8400]
         tflite.run(inputBuffer, outputBuffer.buffer.rewind())  // Running inference
 
         // Get the result from the output buffer
@@ -183,32 +189,71 @@ class MainActivity : AppCompatActivity() {
     // Helper function to get class names, now using a map
     private fun getClassName(classIndex: Int): String {
         val classNames = mapOf(
-            0 to "Apple Braeburn", 1 to "Apple Crimson Snow", 2 to "Apple Golden 1", 3 to "Apple Golden 2", 4 to "Apple Golden 3",
-            5 to "Apple Granny Smith", 6 to "Apple Pink Lady", 7 to "Apple Red 1", 8 to "Apple Red 2", 9 to "Apple Red 3",
-            10 to "Apple Red Delicious", 11 to "Apple Red Yellow 1", 12 to "Apple Red Yellow 2", 13 to "Apricot",
-            14 to "Avocado", 15 to "Avocado ripe", 16 to "Banana", 17 to "Banana Lady Finger", 18 to "Banana Red",
-            19 to "Beetroot", 20 to "Blueberry", 21 to "Cactus fruit", 22 to "Cantaloupe 1", 23 to "Cantaloupe 2",
-            24 to "Carambula", 25 to "Cauliflower", 26 to "Cherry 1", 27 to "Cherry 2", 28 to "Cherry Rainier",
-            29 to "Cherry Wax Black", 30 to "Cherry Wax Red", 31 to "Cherry Wax Yellow", 32 to "Chestnut",
-            33 to "Clementine", 34 to "Cocos", 35 to "Corn", 36 to "Corn Husk", 37 to "Cucumber Ripe",
-            38 to "Cucumber Ripe 2", 39 to "Dates", 40 to "Eggplant", 41 to "Fig", 42 to "Ginger Root", 43 to "Granadilla",
-            44 to "Grape Blue", 45 to "Grape Pink", 46 to "Grape White", 47 to "Grape White 2", 48 to "Grape White 3",
-            49 to "Grape White 4", 50 to "Grapefruit Pink", 51 to "Grapefruit White", 52 to "Guava", 53 to "Hazelnut",
-            54 to "Huckleberry", 55 to "Kaki", 56 to "Kiwi", 57 to "Kohlrabi", 58 to "Kumquats", 59 to "Lemon",
-            60 to "Lemon Meyer", 61 to "Limes", 62 to "Lychee", 63 to "Mandarine", 64 to "Mango", 65 to "Mango Red",
-            66 to "Mangostan", 67 to "Maracuja", 68 to "Melon Piel de Sapo", 69 to "Mulberry", 70 to "Nectarine",
-            71 to "Nectarine Flat", 72 to "Nut Forest", 73 to "Nut Pecan", 74 to "Onion Red", 75 to "Onion Red Peeled",
-            76 to "Onion White", 77 to "Orange", 78 to "Papaya", 79 to "Passion Fruit", 80 to "Peach", 81 to "Peach 2",
-            82 to "Peach Flat", 83 to "Pear", 84 to "Pear 2", 85 to "Pear Abate", 86 to "Pear Forelle", 87 to "Pear Kaiser",
-            88 to "Pear Monster", 89 to "Pear Red", 90 to "Pear Stone", 91 to "Pear Williams", 92 to "Pepino",
-            93 to "Pepper Green", 94 to "Pepper Orange", 95 to "Pepper Red", 96 to "Pepper Yellow", 97 to "Physalis",
-            98 to "Physalis with Husk", 99 to "Pineapple", 100 to "Pineapple Mini", 101 to "Pitahaya Red",
-            102 to "Plum", 103 to "Plum 2", 104 to "Plum 3", 105 to "Pomegranate", 106 to "Pomelo Sweetie",
-            107 to "Potato Red", 108 to "Potato Red Washed", 109 to "Potato Sweet", 110 to "Potato White", 111 to "Quince",
-            112 to "Rambutan", 113 to "Raspberry", 114 to "Redcurrant", 115 to "Salak", 116 to "Strawberry", 117 to "Strawberry 2",
-            118 to "Strawberry 3", 119 to "Strawberry 4", 120 to "Tamarillo", 121 to "Tangerine", 122 to "Tomato",
-            123 to "Tomato Cherry", 124 to "Tomato Marzano", 125 to "Tomato Red", 126 to "Tomato Yellow", 127 to "Watermelon"
+            0 to "almond",
+            1 to "apple",
+            2 to "apricot",
+            3 to "artichoke",
+            4 to "asparagus",
+            5 to "avocado",
+            6 to "banana",
+            7 to "bean curd/tofu",
+            8 to "bell pepper/capsicum",
+            9 to "blackberry",
+            10 to "blueberry",
+            11 to "broccoli",
+            12 to "brussels sprouts",
+            13 to "cantaloup/cantaloupe",
+            14 to "carrot",
+            15 to "cauliflower",
+            16 to "cayenne/cayenne spice/cayenne pepper/cayenne pepper spice/red pepper/red pepper",
+            17 to "celery",
+            18 to "cherry",
+            19 to "chickpea/garbanzo",
+            20 to "chili/chili vegetable/chili pepper/chili pepper vegetable/chilli/chilli vegetable/chilly/chilly",
+            21 to "clementine",
+            22 to "coconut/cocoanut",
+            23 to "edible corn/corn/maize",
+            24 to "cucumber/cuke",
+            25 to "date/date fruit",
+            26 to "eggplant/aubergine",
+            27 to "fig/fig fruit",
+            28 to "garlic/ail",
+            29 to "ginger/gingerroot",
+            30 to "Strawberry",
+            31 to "gourd",
+            32 to "grape",
+            33 to "green bean",
+            34 to "green onion/spring onion/scallion",
+            35 to "Tomato",
+            36 to "kiwi fruit",
+            37 to "lemon",
+            38 to "lettuce",
+            39 to "lime",
+            40 to "mandarin orange",
+            41 to "melon",
+            42 to "mushroom",
+            43 to "onion",
+            44 to "orange/orange fruit",
+            45 to "papaya",
+            46 to "pea/pea food",
+            47 to "peach",
+            48 to "pear",
+            49 to "persimmon",
+            50 to "pickle",
+            51 to "pineapple",
+            52 to "potato",
+            53 to "prune",
+            54 to "pumpkin",
+            55 to "radish/daikon",
+            56 to "raspberry",
+            57 to "strawberry",
+            58 to "sweet potato",
+            59 to "tomato",
+            60 to "turnip",
+            61 to "watermelon",
+            62 to "zucchini/courgette"
         )
+
         return classNames[classIndex] ?: "Unknown"
     }
 }
